@@ -15,7 +15,13 @@ const LoginButton: React.FC = () => {
       const { data, error: authError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent'
+          },
+          redirectTo: import.meta.env.VITE_APP_ENV === 'production' 
+            ? `${import.meta.env.VITE_API_URL}`
+            : `${window.location.origin}`
         }
       });
       

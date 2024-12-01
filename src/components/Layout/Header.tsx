@@ -35,7 +35,7 @@ const Header: React.FC = () => {
           >
             <Mic className="w-6 h-6" />
             <span className={`${isScrolled ? 'text-indigo-600' : 'text-indigo-500'}`}>
-              VoiceRecorder.live
+              Online Voice Recorder
             </span>
           </Link>
           

@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { uploadRecording } from '../utils/supabaseStorage';
+import { AudioProcessor } from '../utils/audioProcessing';
 
 interface UseAudioRecorderProps {
   userId?: string;
@@ -12,12 +13,17 @@ interface UseAudioRecorderReturn {
   audioURL: string | null;
   duration: number;
   isSaving: boolean;
+  isProcessing: boolean;
   lastSavedUrl: string | null;
   startRecording: () => Promise<void>;
   stopRecording: () => void;
   pauseRecording: () => void;
   resumeRecording: () => void;
   downloadRecording: () => void;
+  saveRecording: () => Promise<void>;
+  deleteRecording: () => void;
+  trimSilence: () => Promise<void>;
+  reduceNoise: () => Promise<void>;
 }
 
 export const useAudioRecorder = ({ userId, deviceId }: UseAudioRecorderProps): UseAudioRecorderReturn => {
@@ -26,17 +32,23 @@ export const useAudioRecorder = ({ userId, deviceId }: UseAudioRecorderProps): U
   const [audioURL, setAudioURL] = useState<string | null>(null);
   const [duration, setDuration] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [lastSavedUrl, setLastSavedUrl] = useState<string | null>(null);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerIntervalRef = useRef<number | null>(null);
+  const audioProcessorRef = useRef<AudioProcessor>(new AudioProcessor());
+  const currentBlobRef = useRef<Blob | null>(null);
 
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          deviceId: deviceId ? { exact: deviceId } : undefined
+          deviceId: deviceId ? { exact: deviceId } : undefined,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
         }
       });
       
@@ -49,24 +61,11 @@ export const useAudioRecorder = ({ userId, deviceId }: UseAudioRecorderProps): U
         }
       };
 
-      mediaRecorderRef.current.onstop = async () => {
+      mediaRecorderRef.current.onstop = () => {
         const audioBlob = new Blob(chunksRef.current, { type: 'audio/wav' });
+        currentBlobRef.current = audioBlob;
         const url = URL.createObjectURL(audioBlob);
         setAudioURL(url);
-
-        if (userId) {
-          setIsSaving(true);
-          try {
-            const publicUrl = await uploadRecording(audioBlob, userId);
-            if (publicUrl) {
-              setLastSavedUrl(publicUrl);
-            }
-          } catch (error) {
-            console.error('Error saving recording:', error);
-          } finally {
-            setIsSaving(false);
-          }
-        }
       };
 
       mediaRecorderRef.current.start(1000);
@@ -83,7 +82,6 @@ export const useAudioRecorder = ({ userId, deviceId }: UseAudioRecorderProps): U
     }
   };
 
-  // Rest of the code remains the same...
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
@@ -94,6 +92,32 @@ export const useAudioRecorder = ({ userId, deviceId }: UseAudioRecorderProps): U
         clearInterval(timerIntervalRef.current);
       }
     }
+  };
+
+  const saveRecording = async () => {
+    if (!currentBlobRef.current || !userId) return;
+    
+    setIsSaving(true);
+    try {
+      const publicUrl = await uploadRecording(currentBlobRef.current, userId);
+      if (publicUrl) {
+        setLastSavedUrl(publicUrl);
+      }
+    } catch (error) {
+      console.error('Error saving recording:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const deleteRecording = () => {
+    if (audioURL) {
+      URL.revokeObjectURL(audioURL);
+    }
+    setAudioURL(null);
+    currentBlobRef.current = null;
+    setLastSavedUrl(null);
+    setDuration(0); // Reset the duration when deleting the recording
   };
 
   const pauseRecording = () => {
@@ -125,17 +149,63 @@ export const useAudioRecorder = ({ userId, deviceId }: UseAudioRecorderProps): U
     }
   };
 
+  const updateAudioWithProcessedBlob = async (processedBlob: Blob) => {
+    if (audioURL) {
+      URL.revokeObjectURL(audioURL);
+    }
+    currentBlobRef.current = processedBlob;
+    const newUrl = URL.createObjectURL(processedBlob);
+    setAudioURL(newUrl);
+  };
+
+  const trimSilence = async () => {
+    if (!currentBlobRef.current) return;
+
+    setIsProcessing(true);
+    try {
+      const audioBuffer = await audioProcessorRef.current.blobToAudioBuffer(currentBlobRef.current);
+      const trimmedBuffer = await audioProcessorRef.current.trimSilence(audioBuffer);
+      const processedBlob = await audioProcessorRef.current.audioBufferToBlob(trimmedBuffer);
+      await updateAudioWithProcessedBlob(processedBlob);
+    } catch (error) {
+      console.error('Error trimming silence:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const reduceNoise = async () => {
+    if (!currentBlobRef.current) return;
+
+    setIsProcessing(true);
+    try {
+      const audioBuffer = await audioProcessorRef.current.blobToAudioBuffer(currentBlobRef.current);
+      const processedBuffer = await audioProcessorRef.current.reduceNoise(audioBuffer);
+      const processedBlob = await audioProcessorRef.current.audioBufferToBlob(processedBuffer);
+      await updateAudioWithProcessedBlob(processedBlob);
+    } catch (error) {
+      console.error('Error reducing noise:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return {
     isRecording,
     isPaused,
     audioURL,
     duration,
     isSaving,
+    isProcessing,
     lastSavedUrl,
     startRecording,
     stopRecording,
     pauseRecording,
     resumeRecording,
-    downloadRecording
+    downloadRecording,
+    saveRecording,
+    deleteRecording,
+    trimSilence,
+    reduceNoise
   };
 };

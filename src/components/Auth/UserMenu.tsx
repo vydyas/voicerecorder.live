@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { LogOut, User as UserIcon } from 'lucide-react';
+import { LogOut, Music, User as UserIcon } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import { getRecordings } from '../../utils/supabaseStorage';
+import { Link, useNavigate } from 'react-router-dom';
 
 interface UserMenuProps {
   user: User;
@@ -20,6 +21,7 @@ const UserMenu: React.FC<UserMenuProps> = ({ user }) => {
   const [isLoading, setIsLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [imageError, setImageError] = useState(false);
+  const navigate = useNavigate();
 
 
   const handleClickOutside = (event: MouseEvent) => {
@@ -39,7 +41,13 @@ const UserMenu: React.FC<UserMenuProps> = ({ user }) => {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      
+      // Clear any local storage or state related to auth
+      localStorage.removeItem('sb-mtrtulsvgiwtjtlcbqsq-auth-token');
+      
+      // Close dropdown and redirect to home
       setShowDropdown(false);
+      navigate('/');
     } catch (error) {
       console.error('Error logging out:', error);
     }
@@ -98,6 +106,15 @@ const UserMenu: React.FC<UserMenuProps> = ({ user }) => {
           </div>
 
           <div className="p-2">
+          <Link
+              to="/recordings"
+              className="w-full flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+              onClick={() => setShowDropdown(false)}
+            >
+              <Music size={18} />
+              <span>My Recordings</span>
+            </Link>
+
 
             <button
               onClick={handleLogout}
