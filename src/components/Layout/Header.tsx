@@ -35,7 +35,7 @@ const Header: React.FC = () => {
       <header className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${
         isScrolled 
           ? 'bg-white/70 backdrop-blur-lg shadow-lg border-b border-white/20' 
-          : 'bg-gradient-to-r from-white/80 via-white/60 to-white/80 backdrop-blur-md'
+          : 'bg-gradient-to-r from-white/80 via-white/60 backdrop-blur-md'
       }`}>
         <div className="container mx-auto px-4">
           <div className="relative flex items-center justify-between h-16">
