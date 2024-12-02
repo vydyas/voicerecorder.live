@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mic, Square, Download, Loader2, Pause, Play, Save, Trash2 } from 'lucide-react';
+import { Mic, Square, Download, Loader2, Pause, Play, Save, Trash2, X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAudioRecorder } from '../../hooks/useAudioRecorder';
 import WaveformVisualizer from './WaveformVisualizer';
@@ -12,6 +12,7 @@ const VoiceRecorder: React.FC = () => {
   const { user } = useAuth();
   const [showLoginPopup, setShowLoginPopup] = useState(false);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
+  const [recordingName, setRecordingName] = useState('');
   
   const {
     isRecording,
@@ -35,6 +36,21 @@ const VoiceRecorder: React.FC = () => {
     deviceId: selectedDeviceId
   });
 
+  const formatTime = (seconds: number) => {
+    const remainingSeconds = Math.max(120 - seconds, 0); // 120 seconds = 2 minutes
+    const mins = Math.floor(remainingSeconds / 60);
+    const secs = remainingSeconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getTimeClassName = (seconds: number) => {
+    const remaining = 120 - seconds;
+    if (remaining <= 30) {
+      return 'text-red-600 font-medium';
+    }
+    return 'text-gray-600';
+  };
+
   const handleRecordClick = async () => {
     if (!user) {
       setShowLoginPopup(true);
@@ -42,7 +58,7 @@ const VoiceRecorder: React.FC = () => {
     }
     await startRecording();
   };
-
+  
   return (
     <div className="bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
@@ -97,17 +113,33 @@ const VoiceRecorder: React.FC = () => {
             )}
           </div>
           
-          {audioURL && !isRecording && (
-            <>
-              <div className="mt-6">
-                <audio controls className="w-full" src={audioURL}>
-                  Your browser does not support the audio element.
-                </audio>
+          {isRecording && (
+            <div className={`text-sm ${getTimeClassName(duration)}`}>
+              Time remaining: {formatTime(duration)}
+            </div>
+          )}
+          
+          {audioURL && (
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="recordingName" className="block text-sm font-medium text-gray-700 mb-1">
+                  Recording Name
+                </label>
+                <input
+                  type="text"
+                  id="recordingName"
+                  value={recordingName}
+                  onChange={(e) => setRecordingName(e.target.value)}
+                  placeholder="Enter recording name"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                />
               </div>
-              
-              <div className="flex gap-2 mt-4 justify-center">
+              <div className="flex justify-between items-center">
+                <audio src={audioURL} controls className="w-full max-w-md" />
+              </div>
+              <div className="flex gap-2">
                 <button
-                  onClick={saveRecording}
+                  onClick={() => saveRecording(recordingName || `Recording ${new Date().toISOString()}`)}
                   disabled={isSaving}
                   className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-all duration-200"
                 >
@@ -131,14 +163,16 @@ const VoiceRecorder: React.FC = () => {
                   <span>Delete</span>
                 </button>
               </div>
-              
-              <AudioProcessingControls
-                onTrimSilence={trimSilence}
-                onReduceNoise={reduceNoise}
-                isProcessing={isProcessing}
-                hasRecording={!!audioURL}
-              />
-            </>
+            </div>
+          )}
+          
+          {audioURL && (
+            <AudioProcessingControls
+              onTrimSilence={trimSilence}
+              onReduceNoise={reduceNoise}
+              isProcessing={isProcessing}
+              hasRecording={!!audioURL}
+            />
           )}
         </div>
 

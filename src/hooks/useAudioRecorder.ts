@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { uploadRecording } from '../utils/supabaseStorage';
 import { AudioProcessor } from '../utils/audioProcessing';
 
@@ -20,7 +20,7 @@ interface UseAudioRecorderReturn {
   pauseRecording: () => void;
   resumeRecording: () => void;
   downloadRecording: () => void;
-  saveRecording: () => Promise<void>;
+  saveRecording: (name: string) => Promise<void>;
   deleteRecording: () => void;
   trimSilence: () => Promise<void>;
   reduceNoise: () => Promise<void>;
@@ -41,6 +41,14 @@ export const useAudioRecorder = ({ userId, deviceId }: UseAudioRecorderProps): U
   const audioProcessorRef = useRef<AudioProcessor>(new AudioProcessor());
   const currentBlobRef = useRef<Blob | null>(null);
 
+  useEffect(() => {
+    // Stop recording when duration reaches 120 seconds (2 minutes)
+    if (duration >= 120 && isRecording) {
+      stopRecording();
+      alert('Recording stopped: Maximum duration of 2 minutes reached');
+    }
+  }, [duration]);
+
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -52,57 +60,71 @@ export const useAudioRecorder = ({ userId, deviceId }: UseAudioRecorderProps): U
         }
       });
       
-      mediaRecorderRef.current = new MediaRecorder(stream);
-      chunksRef.current = [];
+      const mediaRecorder = new MediaRecorder(stream);
+      
+      // Reset duration when starting new recording
+      setDuration(0);
+      
+      // Setup audio chunks collection
+      const chunks: Blob[] = [];
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
 
-      mediaRecorderRef.current.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          chunksRef.current.push(e.data);
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'audio/wav' });
+        currentBlobRef.current = blob;
+        const url = URL.createObjectURL(blob);
+        setAudioURL(url);
+        
+        // Stop all tracks
+        stream.getTracks().forEach(track => track.stop());
+        
+        // Clear timer
+        if (timerIntervalRef.current) {
+          clearInterval(timerIntervalRef.current);
+          timerIntervalRef.current = null;
         }
       };
 
-      mediaRecorderRef.current.onstop = () => {
-        const audioBlob = new Blob(chunksRef.current, { type: 'audio/wav' });
-        currentBlobRef.current = audioBlob;
-        const url = URL.createObjectURL(audioBlob);
-        setAudioURL(url);
-      };
-
-      mediaRecorderRef.current.start(1000);
+      // Start recording
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start();
       setIsRecording(true);
-      setIsPaused(false);
-      setDuration(0);
-      setLastSavedUrl(null);
 
+      // Start duration timer
       timerIntervalRef.current = window.setInterval(() => {
-        setDuration((prev) => prev + 1);
+        setDuration(prev => prev + 1);
       }, 1000);
+
     } catch (err) {
       console.error('Error accessing microphone:', err);
+      alert('Failed to start recording. Please check your microphone permissions.');
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.stop();
-      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
       setIsRecording(false);
-      setIsPaused(false);
+      
+      // Clear timers
       if (timerIntervalRef.current) {
         clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
       }
     }
   };
 
-  const saveRecording = async () => {
-    if (!currentBlobRef.current || !userId) return;
+  const saveRecording = async (name: string) => {
+    if (!audioURL || !userId) return;
     
     setIsSaving(true);
     try {
-      const publicUrl = await uploadRecording(currentBlobRef.current, userId);
-      if (publicUrl) {
-        setLastSavedUrl(publicUrl);
-      }
+      const response = await fetch(audioURL);
+      const blob = await response.blob();
+      await uploadRecording(blob, userId, name);
+      setAudioURL(null);
     } catch (error) {
       console.error('Error saving recording:', error);
     } finally {
