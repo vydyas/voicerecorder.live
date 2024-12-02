@@ -46,7 +46,7 @@ const Header: React.FC = () => {
               onClick={closeMenus}
             >
               <span className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                VoiceRecorder.ai
+                OnlineVoiceRecorder
               </span>
             </Link>
 
@@ -82,7 +82,7 @@ const Header: React.FC = () => {
             } w-64 bg-[#FFFFFF] shadow-xl transition-transform duration-300 ease-in-out z-50 border-l border-gray-100`}
           >
             <div className="flex flex-col h-full">
-              <div className="p-6 space-y-4 flex-grow">
+              <div className="p-6 space-y-4">
                 <div className="flex items-center space-x-3 mb-6 border-b border-gray-100 pb-4">
                   <img
                     src={user.user_metadata.avatar_url || 'https://via.placeholder.com/40'}
@@ -104,8 +104,6 @@ const Header: React.FC = () => {
                   <span>My Recordings</span>
                   <ChevronRight size={20} />
                 </Link>
-              </div>
-              <div className="p-6 border-t border-gray-100">
                 <button
                   onClick={() => {
                     signOut();
