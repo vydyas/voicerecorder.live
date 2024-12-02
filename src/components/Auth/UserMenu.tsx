@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { LogOut, Music, User as UserIcon } from 'lucide-react';
+import { LogOut, Music, User as UserIcon, User2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import { getRecordings } from '../../utils/supabaseStorage';
@@ -22,7 +22,6 @@ const UserMenu: React.FC<UserMenuProps> = ({ user }) => {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [imageError, setImageError] = useState(false);
   const navigate = useNavigate();
-
 
   const handleClickOutside = (event: MouseEvent) => {
     if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -105,8 +104,16 @@ const UserMenu: React.FC<UserMenuProps> = ({ user }) => {
             </div>
           </div>
 
-          <div className="p-2">
-          <Link
+          <div className="py-1" role="none">
+            <Link
+              to={`/profile/${user.id}`}
+              className="w-full flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+              onClick={() => setShowDropdown(false)}
+            >
+              <User2 size={18} />
+              <span>View Profile</span>
+            </Link>
+            <Link
               to="/recordings"
               className="w-full flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors duration-200"
               onClick={() => setShowDropdown(false)}
@@ -114,14 +121,12 @@ const UserMenu: React.FC<UserMenuProps> = ({ user }) => {
               <Music size={18} />
               <span>My Recordings</span>
             </Link>
-
-
             <button
               onClick={handleLogout}
               className="w-full flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200"
             >
               <LogOut size={18} />
-              <span>Sign out</span>
+              <span>Sign Out</span>
             </button>
           </div>
 

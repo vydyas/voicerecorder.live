@@ -4,6 +4,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import LoginButton from '../Auth/LoginButton';
 import UserMenu from '../Auth/UserMenu';
 import { Mic } from 'lucide-react';
+import { FeedbackFish } from '@feedback-fish/react';
+import { MessageSquare } from 'lucide-react';
 
 const Header: React.FC = () => {
   const { user } = useAuth();
@@ -54,8 +56,16 @@ const Header: React.FC = () => {
                 My Recordings
               </Link>
             )}
-            <div className={`${isScrolled ? '' : 'backdrop-blur-sm bg-white/10 rounded-full p-1'}`}>
-              {user ? <UserMenu user={user} /> : <LoginButton />}
+            <div className="flex items-center gap-4">
+              <FeedbackFish projectId="8b5911d0aa2782" userId={user?.email}>
+                <button className="flex items-center gap-2 text-gray-600 hover:text-indigo-600 transition-colors">
+                  <MessageSquare size={20} />
+                  <span className="hidden sm:inline">Feedback</span>
+                </button>
+              </FeedbackFish>
+              <div className={`${isScrolled ? '' : 'backdrop-blur-sm bg-white/10 rounded-full p-1'}`}>
+                {user ? <UserMenu user={user} /> : <LoginButton />}
+              </div>
             </div>
           </div>
         </div>
