@@ -6,6 +6,7 @@ import UserMenu from '../Auth/UserMenu';
 import { Mic } from 'lucide-react';
 import { FeedbackFish } from '@feedback-fish/react';
 import { MessageSquare } from 'lucide-react';
+import { trackEvents } from '../../utils/analytics';
 
 const Header: React.FC = () => {
   const { user } = useAuth();
@@ -57,7 +58,11 @@ const Header: React.FC = () => {
               </Link>
             )}
             <div className="flex items-center gap-4">
-              <FeedbackFish projectId="8b5911d0aa2782" userId={user?.email}>
+              <FeedbackFish 
+                projectId="8b5911d0aa2782" 
+                userId={user?.email}
+                onSubmit={() => trackEvents.feedbackSubmitted()}
+              >
                 <button className="flex items-center gap-2 text-gray-600 hover:text-indigo-600 transition-colors">
                   <MessageSquare size={20} />
                   <span className="hidden sm:inline">Feedback</span>

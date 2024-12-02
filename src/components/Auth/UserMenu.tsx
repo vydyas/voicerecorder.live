@@ -4,6 +4,8 @@ import { supabase } from '../../lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import { getRecordings } from '../../utils/supabaseStorage';
 import { Link, useNavigate } from 'react-router-dom';
+import { trackEvents } from '../../utils/analytics';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface UserMenuProps {
   user: User;
@@ -22,6 +24,7 @@ const UserMenu: React.FC<UserMenuProps> = ({ user }) => {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [imageError, setImageError] = useState(false);
   const navigate = useNavigate();
+  const { signOut } = useAuth();
 
   const handleClickOutside = (event: MouseEvent) => {
     if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -36,19 +39,16 @@ const UserMenu: React.FC<UserMenuProps> = ({ user }) => {
     };
   }, []);
 
-  const handleLogout = async () => {
+  const handleSignOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      
-      // Clear any local storage or state related to auth
-      localStorage.removeItem('sb-mtrtulsvgiwtjtlcbqsq-auth-token');
-      
-      // Close dropdown and redirect to home
+      trackEvents.userSignedOut();
       setShowDropdown(false);
-      navigate('/');
+      await signOut();
+      window.location.href = '/';
     } catch (error) {
-      console.error('Error logging out:', error);
+      console.error('Error signing out:', error);
+      // Still redirect even if there's an error
+      window.location.href = '/';
     }
   };
 
@@ -122,7 +122,7 @@ const UserMenu: React.FC<UserMenuProps> = ({ user }) => {
               <span>My Recordings</span>
             </Link>
             <button
-              onClick={handleLogout}
+              onClick={handleSignOut}
               className="w-full flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200"
             >
               <LogOut size={18} />

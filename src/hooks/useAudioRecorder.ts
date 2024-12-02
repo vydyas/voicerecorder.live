@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { uploadRecording } from '../utils/supabaseStorage';
 import { AudioProcessor } from '../utils/audioProcessing';
+import { playStartSound, playStopSound, playPauseSound, playResumeSound } from '../utils/sounds';
 
 interface UseAudioRecorderProps {
-  userId?: string;
+  userId: string | undefined;
   deviceId?: string;
 }
 
@@ -14,16 +15,15 @@ interface UseAudioRecorderReturn {
   duration: number;
   isSaving: boolean;
   isProcessing: boolean;
-  lastSavedUrl: string | null;
   startRecording: () => Promise<void>;
   stopRecording: () => void;
   pauseRecording: () => void;
   resumeRecording: () => void;
-  downloadRecording: () => void;
   saveRecording: (name: string) => Promise<void>;
   deleteRecording: () => void;
+  downloadRecording: () => void;
   trimSilence: () => Promise<void>;
-  reduceNoise: () => Promise<void>;
+  lastSavedUrl: string | null;
 }
 
 export const useAudioRecorder = ({ userId, deviceId }: UseAudioRecorderProps): UseAudioRecorderReturn => {
@@ -40,6 +40,18 @@ export const useAudioRecorder = ({ userId, deviceId }: UseAudioRecorderProps): U
   const timerIntervalRef = useRef<number | null>(null);
   const audioProcessorRef = useRef<AudioProcessor>(new AudioProcessor());
   const currentBlobRef = useRef<Blob | null>(null);
+
+  const resetRecordingState = () => {
+    setDuration(0);
+    setIsRecording(false);
+    setIsPaused(false);
+    setAudioURL(null);
+    currentBlobRef.current = null;
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+  };
 
   useEffect(() => {
     // Stop recording when duration reaches 120 seconds (2 minutes)
@@ -91,6 +103,7 @@ export const useAudioRecorder = ({ userId, deviceId }: UseAudioRecorderProps): U
       mediaRecorderRef.current = mediaRecorder;
       mediaRecorder.start();
       setIsRecording(true);
+      playStartSound(); // Play start sound
 
       // Start duration timer
       timerIntervalRef.current = window.setInterval(() => {
@@ -107,12 +120,36 @@ export const useAudioRecorder = ({ userId, deviceId }: UseAudioRecorderProps): U
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
+      setIsPaused(false);
+      playStopSound(); // Play stop sound
       
       // Clear timers
       if (timerIntervalRef.current) {
         clearInterval(timerIntervalRef.current);
         timerIntervalRef.current = null;
       }
+    }
+  };
+
+  const pauseRecording = () => {
+    if (mediaRecorderRef.current && isRecording && !isPaused) {
+      mediaRecorderRef.current.pause();
+      setIsPaused(true);
+      playPauseSound(); // Play pause sound
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+    }
+  };
+
+  const resumeRecording = () => {
+    if (mediaRecorderRef.current && isRecording && isPaused) {
+      mediaRecorderRef.current.resume();
+      setIsPaused(false);
+      playResumeSound(); // Play resume sound
+      timerIntervalRef.current = window.setInterval(() => {
+        setDuration((prev) => prev + 1);
+      }, 1000);
     }
   };
 
@@ -124,7 +161,9 @@ export const useAudioRecorder = ({ userId, deviceId }: UseAudioRecorderProps): U
       const response = await fetch(audioURL);
       const blob = await response.blob();
       await uploadRecording(blob, userId, name);
-      setAudioURL(null);
+      
+      // Reset recording state
+      resetRecordingState();
     } catch (error) {
       console.error('Error saving recording:', error);
     } finally {
@@ -136,30 +175,8 @@ export const useAudioRecorder = ({ userId, deviceId }: UseAudioRecorderProps): U
     if (audioURL) {
       URL.revokeObjectURL(audioURL);
     }
-    setAudioURL(null);
-    currentBlobRef.current = null;
+    resetRecordingState();
     setLastSavedUrl(null);
-    setDuration(0); // Reset the duration when deleting the recording
-  };
-
-  const pauseRecording = () => {
-    if (mediaRecorderRef.current && isRecording && !isPaused) {
-      mediaRecorderRef.current.pause();
-      setIsPaused(true);
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-      }
-    }
-  };
-
-  const resumeRecording = () => {
-    if (mediaRecorderRef.current && isRecording && isPaused) {
-      mediaRecorderRef.current.resume();
-      setIsPaused(false);
-      timerIntervalRef.current = window.setInterval(() => {
-        setDuration((prev) => prev + 1);
-      }, 1000);
-    }
   };
 
   const downloadRecording = () => {
@@ -187,26 +204,10 @@ export const useAudioRecorder = ({ userId, deviceId }: UseAudioRecorderProps): U
     try {
       const audioBuffer = await audioProcessorRef.current.blobToAudioBuffer(currentBlobRef.current);
       const trimmedBuffer = await audioProcessorRef.current.trimSilence(audioBuffer);
-      const processedBlob = await audioProcessorRef.current.audioBufferToBlob(trimmedBuffer);
-      await updateAudioWithProcessedBlob(processedBlob);
+      const trimmedBlob = await audioProcessorRef.current.audioBufferToBlob(trimmedBuffer);
+      await updateAudioWithProcessedBlob(trimmedBlob);
     } catch (error) {
       console.error('Error trimming silence:', error);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const reduceNoise = async () => {
-    if (!currentBlobRef.current) return;
-
-    setIsProcessing(true);
-    try {
-      const audioBuffer = await audioProcessorRef.current.blobToAudioBuffer(currentBlobRef.current);
-      const processedBuffer = await audioProcessorRef.current.reduceNoise(audioBuffer);
-      const processedBlob = await audioProcessorRef.current.audioBufferToBlob(processedBuffer);
-      await updateAudioWithProcessedBlob(processedBlob);
-    } catch (error) {
-      console.error('Error reducing noise:', error);
     } finally {
       setIsProcessing(false);
     }
@@ -219,15 +220,14 @@ export const useAudioRecorder = ({ userId, deviceId }: UseAudioRecorderProps): U
     duration,
     isSaving,
     isProcessing,
-    lastSavedUrl,
     startRecording,
     stopRecording,
     pauseRecording,
     resumeRecording,
-    downloadRecording,
     saveRecording,
     deleteRecording,
+    downloadRecording,
     trimSilence,
-    reduceNoise
+    lastSavedUrl,
   };
 };
