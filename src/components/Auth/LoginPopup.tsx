@@ -4,9 +4,10 @@ import LoginButton from './LoginButton';
 
 interface LoginPopupProps {
   onClose: () => void;
+  message?: string;
 }
 
-const LoginPopup: React.FC<LoginPopupProps> = ({ onClose }) => {
+const LoginPopup: React.FC<LoginPopupProps> = ({ onClose, message }) => {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative">
@@ -19,6 +20,9 @@ const LoginPopup: React.FC<LoginPopupProps> = ({ onClose }) => {
         
         <div className="text-center mb-6">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Sign in to Record</h2>
+          {message && (
+            <p className="text-sm text-gray-600 mb-4">{message}</p>
+          )}
           <p className="text-gray-600">
             Create an account or sign in to start recording and saving your voice notes.
           </p>

@@ -3,7 +3,6 @@ import { Mic, Square, Download, Loader2, Pause, Play, Save, Trash2, X } from 'lu
 import { useAuth } from '../../contexts/AuthContext';
 import { useAudioRecorder } from '../../hooks/useAudioRecorder';
 import WaveformVisualizer from './WaveformVisualizer';
-import RecordingTimer from './RecordingTimer';
 import LoginPopup from '../Auth/LoginPopup';
 import AudioSettings from './AudioSettings';
 import AudioProcessingControls from './AudioProcessingControls';
@@ -19,46 +18,37 @@ const VoiceRecorder: React.FC = () => {
   const {
     isRecording,
     isPaused,
-    audioURL,
-    duration,
-    isSaving,
-    isProcessing,
-    lastSavedUrl,
     startRecording,
     stopRecording,
     pauseRecording,
     resumeRecording,
-    downloadRecording,
     saveRecording,
+    downloadRecording,
     deleteRecording,
-    trimSilence,
-    reduceNoise
+    audioURL,
+    duration,
+    isSaving,
+    isProcessing,
+    lastSavedUrl
   } = useAudioRecorder({ 
-    userId: user?.id,
-    deviceId: selectedDeviceId
+    userId: user?.id, 
+    deviceId: selectedDeviceId 
   });
 
-  const formatTime = (seconds: number) => {
-    const remainingSeconds = Math.max(120 - seconds, 0); // 120 seconds = 2 minutes
-    const mins = Math.floor(remainingSeconds / 60);
-    const secs = remainingSeconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  const formatTime = (seconds: number): string => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
-  const getTimeClassName = (seconds: number) => {
-    const remaining = 120 - seconds;
-    if (remaining <= 30) {
-      return 'text-red-600 font-medium';
+  const getTimeClassName = (duration: number) => {
+    if (duration <= 10) {
+      return 'text-red-600';
+    }
+    if (duration <= 30) {
+      return 'text-yellow-600';
     }
     return 'text-gray-600';
-  };
-
-  const handleRecordClick = async () => {
-    if (!user) {
-      setShowLoginPopup(true);
-      return;
-    }
-    await startRecording();
   };
 
   const handleStopRecording = () => {
@@ -66,10 +56,23 @@ const VoiceRecorder: React.FC = () => {
     setShowSavePanel(true);
   };
 
+  const handleSave = () => {
+    if (!user) {
+      setShowLoginPopup(true);
+      return;
+    }
+    saveRecording(recordingName || `Recording ${new Date().toISOString()}`);
+    setShowSavePanel(false);
+  };
+
   const handleClosePanel = () => {
     setShowSavePanel(false);
     deleteRecording();
     setRecordingName('');
+  };
+
+  const handleRecordClick = async () => {
+    await startRecording();
   };
 
   return (
@@ -84,27 +87,39 @@ const VoiceRecorder: React.FC = () => {
           <WaveformVisualizer isRecording={isRecording && !isPaused} />
           
           <div className="flex flex-col items-center gap-6">
-            <RecordingTimer duration={duration} isRecording={isRecording} isPaused={isPaused} />
+            <div className="text-center">
+              <div className="text-2xl font-semibold text-gray-700">
+                {formatTime(duration)}
+              </div>
+              {!user && !isRecording && (
+                <p className="text-sm text-gray-500 mt-2">
+                  You can record without logging in, but you'll need to log in to save
+                </p>
+              )}
+            </div>
             
             <div className="flex items-center gap-4">
               {!isRecording ? (
                 <button
                   onClick={handleRecordClick}
                   className="bg-red-500 hover:bg-red-600 text-white p-4 rounded-full transition-all duration-200 shadow-lg hover:shadow-xl"
+                  aria-label="Start Recording"
                 >
-                  <Mic size={24} />
+                  <Mic size={24} aria-hidden="true" />
                 </button>
               ) : (
                 <>
                   <button
                     onClick={handleStopRecording}
                     className="bg-gray-700 hover:bg-gray-800 text-white p-4 rounded-full transition-all duration-200 shadow-lg hover:shadow-xl"
+                    aria-label="Stop Recording"
                   >
-                    <Square size={24} />
+                    <Square size={24} aria-hidden="true" />
                   </button>
                   <button
                     onClick={isPaused ? resumeRecording : pauseRecording}
                     className="bg-indigo-500 hover:bg-indigo-600 text-white p-4 rounded-full transition-all duration-200 shadow-lg hover:shadow-xl"
+                    aria-label={isPaused ? "Resume Recording" : "Pause Recording"}
                   >
                     {isPaused ? <Play size={24} /> : <Pause size={24} />}
                   </button>
@@ -125,17 +140,20 @@ const VoiceRecorder: React.FC = () => {
               </div>
             )}
           </div>
-          
+
           {isRecording && (
             <div className={`text-sm ${getTimeClassName(duration)}`}>
-              Time remaining: {formatTime(duration)}
+              Time remaining: {formatTime(120 - duration)}
             </div>
           )}
         </div>
       </div>
 
       {showLoginPopup && (
-        <LoginPopup onClose={() => setShowLoginPopup(false)} />
+        <LoginPopup 
+          onClose={() => setShowLoginPopup(false)} 
+          message="Please log in to save your recording"
+        />
       )}
 
       {showSavePanel && audioURL && (
@@ -144,12 +162,10 @@ const VoiceRecorder: React.FC = () => {
           recordingName={recordingName}
           isSaving={isSaving}
           onNameChange={setRecordingName}
-          onSave={() => {
-            saveRecording(recordingName || `Recording ${new Date().toISOString()}`);
-            setShowSavePanel(false);
-          }}
+          onSave={handleSave}
           onClose={handleClosePanel}
           onDownload={downloadRecording}
+          requiresLogin={!user}
         />
       )}
     </div>

@@ -28,11 +28,13 @@ const LoginButton: React.FC = () => {
       if (authError) throw authError;
       if (!data.url) throw new Error('No authentication URL returned');
       
+      // Redirect to the OAuth URL
+      window.location.href = data.url;
+      
     } catch (error) {
       console.error('Error logging in:', error);
       setError('Failed to sign in with Google. Please try again.');
-    } finally {
-      setIsLoading(false);
+      setIsLoading(false);  // Only reset loading on error
     }
   };
 
