@@ -7,13 +7,15 @@ import RecordingTimer from './RecordingTimer';
 import LoginPopup from '../Auth/LoginPopup';
 import AudioSettings from './AudioSettings';
 import AudioProcessingControls from './AudioProcessingControls';
+import AudioSavePanel from './AudioSavePanel';
 
 const VoiceRecorder: React.FC = () => {
   const { user } = useAuth();
   const [showLoginPopup, setShowLoginPopup] = useState(false);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
   const [recordingName, setRecordingName] = useState('');
-  
+  const [showSavePanel, setShowSavePanel] = useState(false);
+
   const {
     isRecording,
     isPaused,
@@ -58,7 +60,18 @@ const VoiceRecorder: React.FC = () => {
     }
     await startRecording();
   };
-  
+
+  const handleStopRecording = () => {
+    stopRecording();
+    setShowSavePanel(true);
+  };
+
+  const handleClosePanel = () => {
+    setShowSavePanel(false);
+    deleteRecording();
+    setRecordingName('');
+  };
+
   return (
     <div className="bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
@@ -84,7 +97,7 @@ const VoiceRecorder: React.FC = () => {
               ) : (
                 <>
                   <button
-                    onClick={stopRecording}
+                    onClick={handleStopRecording}
                     className="bg-gray-700 hover:bg-gray-800 text-white p-4 rounded-full transition-all duration-200 shadow-lg hover:shadow-xl"
                   >
                     <Square size={24} />
@@ -118,68 +131,27 @@ const VoiceRecorder: React.FC = () => {
               Time remaining: {formatTime(duration)}
             </div>
           )}
-          
-          {audioURL && (
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="recordingName" className="block text-sm font-medium text-gray-700 mb-1">
-                  Recording Name
-                </label>
-                <input
-                  type="text"
-                  id="recordingName"
-                  value={recordingName}
-                  onChange={(e) => setRecordingName(e.target.value)}
-                  placeholder="Enter recording name"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                />
-              </div>
-              <div className="flex justify-between items-center">
-                <audio src={audioURL} controls className="w-full max-w-md" />
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => saveRecording(recordingName || `Recording ${new Date().toISOString()}`)}
-                  disabled={isSaving}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-all duration-200"
-                >
-                  <Save size={20} />
-                  <span>{isSaving ? 'Saving...' : 'Save'}</span>
-                </button>
-
-                <button
-                  onClick={downloadRecording}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg transition-all duration-200"
-                >
-                  <Download size={20} />
-                  <span>Download</span>
-                </button>
-
-                <button
-                  onClick={deleteRecording}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all duration-200"
-                >
-                  <Trash2 size={20} />
-                  <span>Delete</span>
-                </button>
-              </div>
-            </div>
-          )}
-          
-          {audioURL && (
-            <AudioProcessingControls
-              onTrimSilence={trimSilence}
-              onReduceNoise={reduceNoise}
-              isProcessing={isProcessing}
-              hasRecording={!!audioURL}
-            />
-          )}
         </div>
-
-        {showLoginPopup && (
-          <LoginPopup onClose={() => setShowLoginPopup(false)} />
-        )}
       </div>
+
+      {showLoginPopup && (
+        <LoginPopup onClose={() => setShowLoginPopup(false)} />
+      )}
+
+      {showSavePanel && audioURL && (
+        <AudioSavePanel
+          audioURL={audioURL}
+          recordingName={recordingName}
+          isSaving={isSaving}
+          onNameChange={setRecordingName}
+          onSave={() => {
+            saveRecording(recordingName || `Recording ${new Date().toISOString()}`);
+            setShowSavePanel(false);
+          }}
+          onClose={handleClosePanel}
+          onDownload={downloadRecording}
+        />
+      )}
     </div>
   );
 };

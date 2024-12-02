@@ -23,6 +23,7 @@ interface UseAudioRecorderReturn {
   deleteRecording: () => void;
   downloadRecording: () => void;
   trimSilence: () => Promise<void>;
+  trimAudio: (startTime: number, endTime: number) => Promise<void>;
   lastSavedUrl: string | null;
 }
 
@@ -213,6 +214,66 @@ export const useAudioRecorder = ({ userId, deviceId }: UseAudioRecorderProps): U
     }
   };
 
+  const trimAudio = async (startTime: number, endTime: number) => {
+    if (!currentBlobRef.current) return;
+    
+    setIsProcessing(true);
+    try {
+      const audioContext = new AudioContext();
+      const arrayBuffer = await currentBlobRef.current.arrayBuffer();
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      
+      // Calculate the number of samples for the trimmed section
+      const sampleRate = audioBuffer.sampleRate;
+      const startSample = Math.floor(startTime * sampleRate);
+      const endSample = Math.floor(endTime * sampleRate);
+      const trimmedLength = endSample - startSample;
+      
+      // Create a new buffer for the trimmed audio
+      const trimmedBuffer = new AudioBuffer({
+        length: trimmedLength,
+        numberOfChannels: audioBuffer.numberOfChannels,
+        sampleRate: sampleRate
+      });
+      
+      // Copy the trimmed portion for each channel
+      for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+        const channelData = new Float32Array(trimmedLength);
+        audioBuffer.copyFromChannel(channelData, channel, startSample);
+        trimmedBuffer.copyToChannel(channelData, channel, 0);
+      }
+      
+      // Convert trimmed buffer to blob
+      const mediaStreamDestination = audioContext.createMediaStreamDestination();
+      const source = audioContext.createBufferSource();
+      source.buffer = trimmedBuffer;
+      source.connect(mediaStreamDestination);
+      source.start();
+      
+      const mediaRecorder = new MediaRecorder(mediaStreamDestination.stream);
+      const chunks: Blob[] = [];
+      
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+      
+      mediaRecorder.onstop = () => {
+        const newBlob = new Blob(chunks, { type: 'audio/wav' });
+        currentBlobRef.current = newBlob;
+        const url = URL.createObjectURL(newBlob);
+        setAudioURL(url);
+        setIsProcessing(false);
+      };
+      
+      mediaRecorder.start();
+      setTimeout(() => mediaRecorder.stop(), (endTime - startTime) * 1000 + 100);
+      
+    } catch (error) {
+      console.error('Error trimming audio:', error);
+      setIsProcessing(false);
+    }
+  };
+
   return {
     isRecording,
     isPaused,
@@ -228,6 +289,7 @@ export const useAudioRecorder = ({ userId, deviceId }: UseAudioRecorderProps): U
     deleteRecording,
     downloadRecording,
     trimSilence,
-    lastSavedUrl,
+    trimAudio,
+    lastSavedUrl
   };
 };

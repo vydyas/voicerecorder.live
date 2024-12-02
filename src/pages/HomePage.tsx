@@ -1,7 +1,9 @@
-import React from 'react';
-import VoiceRecorder from '../components/VoiceRecorder/VoiceRecorder';
+import React, { Suspense, lazy } from 'react';
+import LoadingSpinner from '../components/common/LoadingSpinner';
 import Features from '../components/Landing/Features';
 import DemoRecordings from '../components/Landing/DemoRecordings';
+
+const VoiceRecorder = lazy(() => import('../components/VoiceRecorder/VoiceRecorder'));
 
 const HomePage: React.FC = () => {
   return (
@@ -17,7 +19,9 @@ const HomePage: React.FC = () => {
           </p>
         </div>
 
-        <VoiceRecorder />
+        <Suspense fallback={<LoadingSpinner />}>
+          <VoiceRecorder />
+        </Suspense>
       </div>
 
       <DemoRecordings />

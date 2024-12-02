@@ -1,12 +1,16 @@
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import Header from './components/Layout/Header';
-import HomePage from './pages/HomePage';
-import RecordingsPage from './pages/RecordingsPage';
-import ProfilePage from './pages/ProfilePage';
+import LoadingSpinner from './components/common/LoadingSpinner';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 import { useEffect } from 'react';
 import { initGA, pageview } from './utils/analytics';
+import React, { Suspense, lazy } from 'react';
+
+// Lazy load pages
+const HomePage = lazy(() => import('./pages/HomePage'));
+const RecordingsPage = lazy(() => import('./pages/RecordingsPage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 
 // Component to track page views
 const PageViewTracker = () => {
@@ -31,18 +35,26 @@ const AppContent = () => {
       <div className="min-h-screen bg-gradient-to-br from-indigo-100 to-purple-100">
         <Header />
         <div className="pt-16">
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route
-              path="/recordings"
-              element={
-                <ProtectedRoute>
-                  <RecordingsPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="/profile/:userId" element={<ProfilePage />} />
-          </Routes>
+          <Suspense 
+            fallback={
+              <div className="container mx-auto px-4 py-8">
+                <LoadingSpinner />
+              </div>
+            }
+          >
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route
+                path="/recordings"
+                element={
+                  <ProtectedRoute>
+                    <RecordingsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/profile/:userId" element={<ProfilePage />} />
+            </Routes>
+          </Suspense>
         </div>
       </div>
     </>
