@@ -7,8 +7,10 @@ import LoginPopup from '../Auth/LoginPopup';
 import AudioSettings from './AudioSettings';
 import AudioProcessingControls from './AudioProcessingControls';
 import AudioSavePanel from './AudioSavePanel';
+import { useNavigate } from 'react-router-dom';
 
 const VoiceRecorder: React.FC = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [showLoginPopup, setShowLoginPopup] = useState(false);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
@@ -63,6 +65,7 @@ const VoiceRecorder: React.FC = () => {
     }
     saveRecording(recordingName || `Recording ${new Date().toISOString()}`);
     setShowSavePanel(false);
+    navigate('/recordings');
   };
 
   const handleClosePanel = () => {
@@ -71,8 +74,12 @@ const VoiceRecorder: React.FC = () => {
     setRecordingName('');
   };
 
-  const handleRecordClick = async () => {
-    await startRecording();
+  const handleRecordClick = () => {
+    if (!user) {
+      setShowLoginPopup(true);
+      return;
+    }
+    startRecording();
   };
 
   return (
@@ -91,9 +98,9 @@ const VoiceRecorder: React.FC = () => {
               <div className="text-2xl font-semibold text-gray-700">
                 {formatTime(duration)}
               </div>
-              {!user && !isRecording && (
+              {!user && (
                 <p className="text-sm text-gray-500 mt-2">
-                  You can record without logging in, but you'll need to log in to save
+                  Please log in to start recording
                 </p>
               )}
             </div>
@@ -102,8 +109,8 @@ const VoiceRecorder: React.FC = () => {
               {!isRecording ? (
                 <button
                   onClick={handleRecordClick}
-                  className="bg-red-500 hover:bg-red-600 text-white p-4 rounded-full transition-all duration-200 shadow-lg hover:shadow-xl"
-                  aria-label="Start Recording"
+                  className={`${user ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-400'} text-white p-4 rounded-full transition-all duration-200 shadow-lg hover:shadow-xl`}
+                  aria-label={user ? "Start Recording" : "Login required to record"}
                 >
                   <Mic size={24} aria-hidden="true" />
                 </button>
