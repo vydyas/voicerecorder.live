@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://online-voice-recorder.vercel.app/sitemap.xml
